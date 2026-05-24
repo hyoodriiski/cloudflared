@@ -1,0 +1,103 @@
+// cloudflared - A tunneling daemon that proxies traffic through Cloudflare's network.
+// This is a fork of cloudflare/cloudflared with additional features and fixes.
+package main
+
+import (
+	"fmt"
+	"os"
+	"time"
+
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+	"github.com/urfave/cli/v2"
+)
+
+var (
+	// Version is set at build time via ldflags
+	Version = "dev"
+	// BuildTime is set at build time via ldflags
+	BuildTime = "unknown"
+	// GitCommit is set at build time via ldflags
+	GitCommit = "none"
+)
+
+func main() {
+	// Configure zerolog for human-friendly console output in development
+	log.Logger = log.Output(zerolog.ConsoleWriter{
+		Out:        os.Stderr,
+		TimeFormat: time.RFC3339,
+	})
+
+	app := &cli.App{
+		Name:    "cloudflared",
+		Usage:   "Cloudflare Tunnel client",
+		Version: fmt.Sprintf("%s (built: %s, commit: %s)", Version, BuildTime, GitCommit),
+		Authors: []*cli.Author{
+			{
+				Name:  "Cloudflare",
+				Email: "support@cloudflare.com",
+			},
+		},
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:    "loglevel",
+				Aliases: []string{"l"},
+				Value:   "info",
+				Usage:   "Application logging level {debug, info, warn, error, fatal}. NOTE: when logging level is set to 'debug', all requests and responses will be logged.",
+				EnvVars: []string{"TUNNEL_LOGLEVEL"},
+			},
+			&cli.StringFlag{
+				Name:    "logfile",
+				Usage:   "Save application log to this file for reporting issues.",
+				EnvVars: []string{"TUNNEL_LOGFILE"},
+			},
+			&cli.BoolFlag{
+				Name:    "no-autoupdate",
+				Usage:   "Disable automatic service updates.",
+				Value:   false,
+				EnvVars: []string{"NO_AUTOUPDATE"},
+			},
+		},
+		Before: func(c *cli.Context) error {
+			return configureLogging(c)
+		},
+		Commands: []*cli.Command{
+			{
+				Name:  "version",
+				Usage: "Print the version",
+				Action: func(c *cli.Context) error {
+					fmt.Printf("cloudflared version %s (built: %s, commit: %s)\n", Version, BuildTime, GitCommit)
+					return nil
+				},
+			},
+		},
+	}
+
+	if err := app.Run(os.Args); err != nil {
+		log.Fatal().Err(err).Msg("cloudflared terminated with error")
+	}
+}
+
+// configureLogging sets up the global logger based on CLI flags.
+func configureLogging(c *cli.Context) error {
+	levelStr := c.String("loglevel")
+	level, err := zerolog.ParseLevel(levelStr)
+	if err != nil {
+		return fmt.Errorf("invalid log level %q: %w", levelStr, err)
+	}
+	zerolog.SetGlobalLevel(level)
+
+	if logfile := c.String("logfile"); logfile != "" {
+		f, err := os.OpenFile(logfile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			return fmt.Errorf("failed to open log file %q: %w", logfile, err)
+		}
+		log.Logger = log.Output(zerolog.MultiLevelWriter(
+			zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.RFC3339},
+			f,
+		))
+	}
+
+	log.Debug().Str("version", Version).Str("commit", GitCommit).Msg("cloudflared starting")
+	return nil
+}
