@@ -55,7 +55,8 @@ func main() {
 			&cli.BoolFlag{
 				Name:    "no-autoupdate",
 				Usage:   "Disable automatic service updates.",
-				Value:   false,
+				// Default to true in my fork since I manage updates manually
+				Value:   true,
 				EnvVars: []string{"NO_AUTOUPDATE"},
 			},
 		},
