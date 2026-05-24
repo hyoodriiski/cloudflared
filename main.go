@@ -59,6 +59,13 @@ func main() {
 				Value:   true,
 				EnvVars: []string{"NO_AUTOUPDATE"},
 			},
+			// Added for convenience: print a startup banner showing the active config
+			&cli.BoolFlag{
+				Name:    "startup-banner",
+				Usage:   "Print a short banner with version and key settings on startup.",
+				Value:   true,
+				EnvVars: []string{"TUNNEL_STARTUP_BANNER"},
+			},
 		},
 		Before: func(c *cli.Context) error {
 			return configureLogging(c)
@@ -101,5 +108,11 @@ func configureLogging(c *cli.Context) error {
 	}
 
 	log.Debug().Str("version", Version).Str("commit", GitCommit).Msg("cloudflared starting")
+
+	if c.Bool("startup-banner") {
+		fmt.Fprintf(os.Stderr, "==> cloudflared %s | loglevel: %s | no-autoupdate: %v\n",
+			Version, levelStr, c.Bool("no-autoupdate"))
+	}
+
 	return nil
 }
