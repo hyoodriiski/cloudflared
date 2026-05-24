@@ -63,7 +63,8 @@ func main() {
 			&cli.BoolFlag{
 				Name:    "startup-banner",
 				Usage:   "Print a short banner with version and key settings on startup.",
-				Value:   true,
+				// Changed default to false - the banner is noisy in scripts and cron jobs
+				Value:   false,
 				EnvVars: []string{"TUNNEL_STARTUP_BANNER"},
 			},
 		},
@@ -99,20 +100,4 @@ func configureLogging(c *cli.Context) error {
 	if logfile := c.String("logfile"); logfile != "" {
 		f, err := os.OpenFile(logfile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
-			return fmt.Errorf("failed to open log file %q: %w", logfile, err)
-		}
-		log.Logger = log.Output(zerolog.MultiLevelWriter(
-			zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.RFC3339},
-			f,
-		))
-	}
-
-	log.Debug().Str("version", Version).Str("commit", GitCommit).Msg("cloudflared starting")
-
-	if c.Bool("startup-banner") {
-		fmt.Fprintf(os.Stderr, "==> cloudflared %s | loglevel: %s | no-autoupdate: %v\n",
-			Version, levelStr, c.Bool("no-autoupdate"))
-	}
-
-	return nil
-}
+			return fmt.Errorf("failed to open log file %q: 
