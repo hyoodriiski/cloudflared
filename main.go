@@ -99,13 +99,14 @@ func configureLogging(c *cli.Context) error {
 
 	if logfile := c.String("logfile"); logfile != "" {
 		// Use os.O_WRONLY|os.O_CREATE|os.O_APPEND instead of os.O_RDWR so that
-		// multiple processes can safely write to the same log file without
-		// truncating it on open. os.O_RDWR was a bug in the original code.
+		// concurrent runs (e.g. from systemd restarts) don't clobber each other's logs.
 		f, err := os.OpenFile(logfile, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
 		if err != nil {
 			return fmt.Errorf("failed to open log file %q: %w", logfile, err)
 		}
-		log.Logger = log.Output(f)
+		// Write to both stderr (console) and the log file for visibility
+		multi := zerolog.MultiLevelWriter(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.RFC3339}, f)
+		log.Logger = zerolog.New(multi).With().Timestamp().Logger()
 	}
 
 	return nil
