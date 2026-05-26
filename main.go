@@ -98,6 +98,13 @@ func configureLogging(c *cli.Context) error {
 	zerolog.SetGlobalLevel(level)
 
 	if logfile := c.String("logfile"); logfile != "" {
+		// Use os.O_WRONLY instead of os.O_RDWR - log files are write-only
 		f, err := os.OpenFile(logfile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
-			return fmt.Errorf("failed to open log file %q: 
+			return fmt.Errorf("failed to open log file %q: %w", logfile, err)
+		}
+		log.Logger = log.Output(f)
+	}
+
+	return nil
+}
