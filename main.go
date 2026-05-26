@@ -98,12 +98,15 @@ func configureLogging(c *cli.Context) error {
 	zerolog.SetGlobalLevel(level)
 
 	if logfile := c.String("logfile"); logfile != "" {
-		// Use os.O_WRONLY instead of os.O_RDWR - log files are write-only
-		f, err := os.OpenFile(logfile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		// Use os.O_WRONLY|os.O_CREATE|os.O_APPEND instead of os.O_RDWR - log files are write-only;
+		// O_APPEND prevents truncating existing logs on restart, which is useful for debugging crashes.
+		f, err := os.OpenFile(logfile, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
 		if err != nil {
 			return fmt.Errorf("failed to open log file %q: %w", logfile, err)
 		}
-		log.Logger = log.Output(f)
+		// Write to both stderr and the log file so console output is preserved
+		multiWriter := zerolog.MultiLevelWriter(os.Stderr, f)
+		log.Logger = zerolog.New(multiWriter).With().Timestamp().Logger()
 	}
 
 	return nil
